@@ -1,3 +1,28 @@
+FROM node:20.10.0 AS builder
+
+LABEL org.opencontainers.image.description="Builds roBrowserLegacy JS bundles and HTML."
+
+USER root
+
+RUN apt update -y -q && apt install build-essential -y -q
+
+WORKDIR /app
+
+# Install dependencies first (layer-cached separately from source)
+COPY package*.json ./
+RUN npm install
+
+# Copy source and build
+COPY . .
+RUN npm run build:all
+
+# Copy Config.local.js into the dist output so it's served alongside index.html
+RUN if [ -f applications/pwa/Config.local.js ]; then \
+      cp applications/pwa/Config.local.js dist/Web/Config.local.js; \
+    fi
+
+# ---
+
 FROM node:20.10.0 AS dev
 
 LABEL org.opencontainers.image.description="Creates a environment to host the NodeJS and NPM environment."
@@ -12,7 +37,11 @@ WORKDIR /app
 
 EXPOSE 8000
 
-ENTRYPOINT ["/bin/bash", "-l", "-c", "sleep", "360h"]
+# Fixed: previously was ["/bin/bash", "-l", "-c", "sleep", "360h"] which passes
+# "sleep" as the -c script and "360h" as $0, causing bash to exit immediately.
+ENTRYPOINT ["/bin/bash", "-c", "sleep 360h"]
+
+# ---
 
 FROM php:8.3-apache AS dist-server
 
@@ -59,6 +88,11 @@ EOF
 
 RUN echo "Listen 8080" >> /etc/apache2/ports.conf
 
+# Copy the built dist files from the builder stage
+COPY --from=builder --chown=www-data:www-data /app/dist/Web /var/www/html
+
 EXPOSE 8080
 
 USER www-data
+
+CMD ["apache2-foreground"]
