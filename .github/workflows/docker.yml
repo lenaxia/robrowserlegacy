@@ -3,13 +3,13 @@ name: 'Build Docker Image'
 # Triggered on tag push (e.g. v1.0.0, v1.2.3)
 # Produces two multi-platform images per tag (linux/amd64 + linux/arm64):
 #
-#   ghcr.io/lenaxia/robrowserlegacy:<version>       — full (~5GB, GRFs baked in)
-#   ghcr.io/lenaxia/robrowserlegacy:<version>-slim  — slim (~400MB, mount GRFs at runtime)
+#   ghcr.io/lenaxia/robrowserlegacy:<version>       - full (~5GB, GRFs baked in)
+#   ghcr.io/lenaxia/robrowserlegacy:<version>-slim  - slim (~400MB, mount GRFs at runtime)
 #
 # Required secrets for full image:
-#   GRF_BASE_URL         — base HTTPS URL for GRF assets (kept secret to hide server hostname)
-#   S3_ACCESS_KEY_ID     — S3/MinIO access key ID
-#   S3_SECRET_ACCESS_KEY — S3/MinIO secret access key
+#   GRF_BASE_URL         - base HTTPS URL for GRF assets (kept secret to hide server hostname)
+#   S3_ACCESS_KEY_ID     - S3/MinIO access key ID
+#   S3_SECRET_ACCESS_KEY - S3/MinIO secret access key
 #
 # If GRF secrets are absent, only the slim image is built (full job self-skips).
 
@@ -28,7 +28,7 @@ permissions:
 
 jobs:
     # ── Slim image ─────────────────────────────────────────────────────────────
-    # No GRFs — fast build (~5min), small image (~400MB).
+    # No GRFs - fast build (~5min), small image (~400MB).
     # GRFs and Config.local.js must be mounted at runtime.
     slim:
         name: 'Build slim image'
@@ -113,7 +113,7 @@ jobs:
                   GRF_BASE_URL: ${{ secrets.GRF_BASE_URL }}
               run: |
                   if [ -z "${GRF_BASE_URL}" ]; then
-                    echo "GRF_BASE_URL secret not set — skipping full image build."
+                    echo "GRF_BASE_URL secret not set - skipping full image build."
                     echo "skip=true" >> "$GITHUB_OUTPUT"
                   else
                     echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -158,7 +158,7 @@ jobs:
                   push: true
                   provenance: false
                   build-args: BUILD_VERSION=${{ needs.slim.outputs.build_version }}
-                  # All sensitive values passed as BuildKit secrets — never written
+                  # All sensitive values passed as BuildKit secrets - never written
                   # to any image layer or visible in docker history / image metadata
                   secrets: |
                       s3_access_key_id=${{ secrets.S3_ACCESS_KEY_ID }}
@@ -167,7 +167,7 @@ jobs:
                   tags: |
                       ghcr.io/${{ github.repository }}:${{ needs.slim.outputs.build_version }}
                       ghcr.io/${{ github.repository }}:latest
-                  # Reuse slim's cached layers — only grf-downloader stage is new.
+                  # Reuse slim's cached layers - only grf-downloader stage is new.
                   # ignore-error=true prevents cache write failures from failing the build
                   # (GHA cache can evict entries mid-write for large layers).
                   cache-from: |

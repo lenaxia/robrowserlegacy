@@ -1,4 +1,4 @@
-// Config.local.js — copy this file, fill in your server details, and mount it:
+// Config.local.js - copy this file, fill in your server details, and mount it:
 //
 //   cp applications/pwa/Config.local.js.example Config.local.js
 //   # Edit Config.local.js with your server settings, then:
@@ -21,14 +21,14 @@ window.ROConfigLocal = {
 			packetver: 20200401,              // Must match your rAthena PACKETVER
 			renewal: true,                    // true = Renewal, false = Pre-renewal/Classic
 			packetKeys: false,
-			socketProxy: 'ws://localhost:3338/ws/',  // WebSocket proxy — points at this container
+			socketProxy: 'ws://localhost:3338/ws/',  // WebSocket proxy - points at this container
 			forceUseAddress: true,            // CRITICAL: prevents client using internal IPs
 			                                  // returned by char/map server packets, which
 			                                  // are unreachable in containerised deployments
 			// adminList: [2000000],           // Optional: account IDs with GM commands enabled
 		}
 	],
-	remoteClient: 'http://localhost:3338/',  // GRF asset server — points at this container
+	remoteClient: 'http://localhost:3338/',  // GRF asset server - points at this container
 	skipIntro: false,                        // Set true to skip the intro video
 	skipServerList: false,                   // Set true to auto-select the first server
 	development: false,

@@ -2,7 +2,7 @@ services:
     # ─────────────────────────────────────────────────────────────────────────────
     # roBrowserLegacy
     #
-    # IMPORTANT — Before starting:
+    # IMPORTANT - Before starting:
     #   cp applications/pwa/Config.local.js.example Config.local.js
     #   # Edit Config.local.js: set address, packetver, renewal to match your server
     #

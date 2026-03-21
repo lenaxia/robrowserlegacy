@@ -27,7 +27,7 @@ that handles three responsibilities in a single process:
 >
 > The full image is also only built when `GRF_BASE_URL`, `S3_ACCESS_KEY_ID`,
 > and `S3_SECRET_ACCESS_KEY` secrets are configured in your CI environment.
-> If these secrets are absent, only the slim image is built — the full job
+> If these secrets are absent, only the slim image is built - the full job
 > skips gracefully with no build failure.
 
 Both variants are published to GitHub Container Registry:
@@ -47,7 +47,7 @@ ghcr.io/lenaxia/robrowserlegacy:latest-slim   # slim
 cp applications/pwa/Config.local.js.example Config.local.js
 ```
 
-Edit `Config.local.js` — at minimum set:
+Edit `Config.local.js` - at minimum set:
 
 ```js
 address:   '127.0.0.1',   // your rAthena login server IP
@@ -110,8 +110,8 @@ to get started.
 | `port`            | Login server port (default: `6900`)                                        |
 | `packetver`       | Must match rAthena `PACKETVER` (e.g. `20200401`)                           |
 | `renewal`         | `true` for Renewal, `false` for Pre-renewal/Classic                        |
-| `socketProxy`     | WebSocket proxy URL — points at this container (`ws://localhost:3338/ws/`) |
-| `remoteClient`    | GRF asset server URL — points at this container (`http://localhost:3338/`) |
+| `socketProxy`     | WebSocket proxy URL - points at this container (`ws://localhost:3338/ws/`) |
+| `remoteClient`    | GRF asset server URL - points at this container (`http://localhost:3338/`) |
 | `forceUseAddress` | **Set `true`** for any containerised or NAT deployment                     |
 | `skipIntro`       | Skip the intro video (`false` by default)                                  |
 | `skipServerList`  | Auto-select first server (`false` by default)                              |
@@ -150,7 +150,7 @@ docker buildx build \
 ### Full (GRFs baked in, ~5 GB)
 
 GRF assets are fetched from a private HTTPS endpoint using
-[BuildKit secrets](https://docs.docker.com/build/building/secrets/) — they are
+[BuildKit secrets](https://docs.docker.com/build/building/secrets/) - they are
 never written to any image layer or visible in `docker history`.
 
 Prepare tarballs once from your kRO client directory:
@@ -193,7 +193,7 @@ Required repository secrets:
 | `S3_ACCESS_KEY_ID`     | S3/MinIO access key ID                |
 | `S3_SECRET_ACCESS_KEY` | S3/MinIO secret access key            |
 
-If the GRF secrets are absent, only the slim image is built — the full job
+If the GRF secrets are absent, only the slim image is built - the full job
 skips gracefully.
 
 Trigger a build by pushing a semver tag:
@@ -217,13 +217,13 @@ ghcr.io/<owner>/robrowserlegacy:latest-slim  # slim, latest tag
 
 | File        | Required | Notes                                                      |
 | ----------- | -------- | ---------------------------------------------------------- |
-| `data.grf`  | Yes      | Main game assets — textures, maps, sprites, DB tables      |
+| `data.grf`  | Yes      | Main game assets - textures, maps, sprites, DB tables      |
 | `rdata.grf` | Yes      | kRO-specific patches                                       |
 | `DATA.INI`  | Yes      | Tells the server which GRF files to load and in what order |
-| `BGM/`      | No       | Background music MP3s — game is silent without it          |
+| `BGM/`      | No       | Background music MP3s - game is silent without it          |
 
 `data/`, `System/`, and `AI/` directories from the kRO client are **not
-needed** — their contents are already inside `data.grf` for a standard
+needed** - their contents are already inside `data.grf` for a standard
 unmodified client. Custom servers with patched loose files can mount them as
 additional volumes.
 
