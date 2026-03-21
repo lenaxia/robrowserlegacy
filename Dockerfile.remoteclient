@@ -60,31 +60,42 @@ FROM alpine AS grf-downloader
 
 ARG GRF_BASE_URL=""
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache aws-cli
 
 WORKDIR /grffiles
 
 # Credentials injected via BuildKit secret mounts — never written to any layer.
+# Uses AWS CLI with SigV4 auth against the MinIO-compatible S3 endpoint.
 # If GRF_BASE_URL is not set this stage is a no-op (empty /grffiles directory).
 # ragnarok-grfs.tar.gz is required. ragnarok-bgm.tar.gz is optional.
 RUN --mount=type=secret,id=s3_access_key_id \
     --mount=type=secret,id=s3_secret_access_key \
     if [ -n "${GRF_BASE_URL}" ]; then \
-      echo "Downloading GRF assets from ${GRF_BASE_URL} ..."; \
       KEY_ID="$(cat /run/secrets/s3_access_key_id 2>/dev/null || true)"; \
       SECRET="$(cat /run/secrets/s3_secret_access_key 2>/dev/null || true)"; \
-      if [ -n "${KEY_ID}" ] && [ -n "${SECRET}" ]; then \
-        AUTH="-u ${KEY_ID}:${SECRET}"; \
-      else \
-        AUTH=""; \
-        echo "No credentials provided — attempting unauthenticated download."; \
+      if [ -z "${KEY_ID}" ] || [ -z "${SECRET}" ]; then \
+        echo "ERROR: S3 credentials not provided."; exit 1; \
       fi; \
-      curl --fail --progress-bar -L ${AUTH} \
-        -o ragnarok-grfs.tar.gz "${GRF_BASE_URL}/ragnarok-grfs.tar.gz" && \
+      # Parse bucket and prefix from URL: https://s3.host/bucket/prefix
+      S3_HOST=$(echo "${GRF_BASE_URL}" | sed 's|https\?://||' | cut -d/ -f1); \
+      S3_PATH=$(echo "${GRF_BASE_URL}" | sed 's|https\?://[^/]*/||'); \
+      S3_BUCKET=$(echo "${S3_PATH}" | cut -d/ -f1); \
+      S3_PREFIX=$(echo "${S3_PATH}" | cut -d/ -f2-); \
+      echo "Downloading GRF assets from s3://${S3_BUCKET}/${S3_PREFIX}/ via ${S3_HOST} ..."; \
+      AWS_ACCESS_KEY_ID="${KEY_ID}" AWS_SECRET_ACCESS_KEY="${SECRET}" \
+      AWS_DEFAULT_REGION="us-east-1" \
+      AWS_REQUEST_CHECKSUM_CALCULATION="when_required" \
+      AWS_RESPONSE_CHECKSUM_VALIDATION="when_required" \
+        aws s3 cp "s3://${S3_BUCKET}/${S3_PREFIX}/ragnarok-grfs.tar.gz" ragnarok-grfs.tar.gz \
+          --endpoint-url "https://${S3_HOST}" --no-verify-ssl 2>&1 | grep -v InsecureRequest && \
       tar -xzf ragnarok-grfs.tar.gz && rm ragnarok-grfs.tar.gz && \
       echo "GRF core assets extracted." && \
-      ( curl --fail --progress-bar -L ${AUTH} \
-          -o ragnarok-bgm.tar.gz "${GRF_BASE_URL}/ragnarok-bgm.tar.gz" && \
+      ( AWS_ACCESS_KEY_ID="${KEY_ID}" AWS_SECRET_ACCESS_KEY="${SECRET}" \
+        AWS_DEFAULT_REGION="us-east-1" \
+        AWS_REQUEST_CHECKSUM_CALCULATION="when_required" \
+        AWS_RESPONSE_CHECKSUM_VALIDATION="when_required" \
+          aws s3 cp "s3://${S3_BUCKET}/${S3_PREFIX}/ragnarok-bgm.tar.gz" ragnarok-bgm.tar.gz \
+            --endpoint-url "https://${S3_HOST}" --no-verify-ssl 2>&1 | grep -v InsecureRequest && \
         tar -xzf ragnarok-bgm.tar.gz && rm ragnarok-bgm.tar.gz && \
         echo "BGM extracted." \
       ) || echo "BGM not available — skipping."; \
