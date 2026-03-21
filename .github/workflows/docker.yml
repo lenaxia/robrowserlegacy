@@ -81,7 +81,7 @@ jobs:
                       ghcr.io/${{ github.repository }}:${{ steps.version.outputs.build_version }}-slim
                       ghcr.io/${{ github.repository }}:latest-slim
                   cache-from: type=gha,scope=docker-slim
-                  cache-to: type=gha,mode=max,scope=docker-slim
+                  cache-to: type=gha,mode=max,scope=docker-slim,ignore-error=true
                   labels: |
                       org.opencontainers.image.source=https://github.com/${{ github.repository }}
                       org.opencontainers.image.revision=${{ github.sha }}
@@ -167,11 +167,13 @@ jobs:
                   tags: |
                       ghcr.io/${{ github.repository }}:${{ needs.slim.outputs.build_version }}
                       ghcr.io/${{ github.repository }}:latest
-                  # Reuse slim's cached layers — only grf-downloader stage is new
+                  # Reuse slim's cached layers — only grf-downloader stage is new.
+                  # ignore-error=true prevents cache write failures from failing the build
+                  # (GHA cache can evict entries mid-write for large layers).
                   cache-from: |
                       type=gha,scope=docker-slim
                       type=gha,scope=docker-full
-                  cache-to: type=gha,mode=max,scope=docker-full
+                  cache-to: type=gha,mode=max,scope=docker-full,ignore-error=true
                   labels: |
                       org.opencontainers.image.source=https://github.com/${{ github.repository }}
                       org.opencontainers.image.revision=${{ github.sha }}
