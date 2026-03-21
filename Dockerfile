@@ -18,10 +18,10 @@ RUN npm install
 COPY . .
 RUN npm run build:all
 
-# Copy Config.local.js into the dist output so it's served alongside index.html
-RUN if [ -f applications/pwa/Config.local.js ]; then \
-      cp applications/pwa/Config.local.js dist/Web/Config.local.js; \
-    fi
+# Copy Config.local.js into the dist output so it's served alongside index.html.
+# NOTE: Config.local.js is excluded from the build context via .dockerignore to
+# prevent accidental secret baking. It must always be mounted at runtime.
+# See applications/pwa/Config.local.js.example for the template.
 
 # ---
 
@@ -58,6 +58,7 @@ USER root
 RUN apt-get update -y -qq && \
     a2enmod rewrite && \
     a2enmod headers && \
+    a2dissite 000-default && \
     rm -rf /var/lib/apt/lists/*
 
 # For some IDEs this line is treated as wrongly configured, but this is a bug !

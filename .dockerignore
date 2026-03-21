@@ -4,6 +4,7 @@ dist
 .github
 doc
 *.md
-**/.env
-.env*
+# Exclude all .env files at any depth
+**/.env*
+# Prevent accidentally baking Config.local.js into the image — must be mounted at runtime
 applications/pwa/Config.local.js
