@@ -14,13 +14,26 @@ that handles three responsibilities in a single process:
 
 | Variant  | Tag suffix                 | Size    | GRF assets                 |
 | -------- | -------------------------- | ------- | -------------------------- |
-| **full** | _(none)_ e.g. `:1.0.0`     | ~5 GB   | Baked in at build time     |
 | **slim** | `-slim` e.g. `:1.0.0-slim` | ~400 MB | Must be mounted at runtime |
+| **full** | _(none)_ e.g. `:1.0.0`     | ~5 GB   | Baked in at build time     |
+
+> **The slim image is recommended for most deployments.**
+>
+> GRF files (`.grf`) are copyrighted by Gravity Co., Ltd. Baking them into a
+> publicly distributed Docker image would constitute redistribution of
+> copyrighted game assets, which is not permitted. The full image should only
+> be used in **private, self-hosted registries** where the image is never
+> pushed to a public registry.
+>
+> The full image is also only built when `GRF_BASE_URL`, `S3_ACCESS_KEY_ID`,
+> and `S3_SECRET_ACCESS_KEY` secrets are configured in your CI environment.
+> If these secrets are absent, only the slim image is built — the full job
+> skips gracefully with no build failure.
 
 Both variants are published to GitHub Container Registry:
 
 ```
-ghcr.io/lenaxia/robrowserlegacy:latest        # full
+ghcr.io/lenaxia/robrowserlegacy:latest        # full (private registries only)
 ghcr.io/lenaxia/robrowserlegacy:latest-slim   # slim
 ```
 
