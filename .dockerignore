@@ -4,3 +4,6 @@ dist
 .github
 doc
 *.md
+**/.env
+.env*
+applications/pwa/Config.local.js
