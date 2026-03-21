@@ -12,9 +12,9 @@ that handles three responsibilities in a single process:
 
 ## Image variants
 
-| Variant | Tag suffix | Size | GRF assets |
-|---|---|---|---|
-| **full** | *(none)* e.g. `:1.0.0` | ~5 GB | Baked in at build time |
+| Variant  | Tag suffix                 | Size    | GRF assets                 |
+| -------- | -------------------------- | ------- | -------------------------- |
+| **full** | _(none)_ e.g. `:1.0.0`     | ~5 GB   | Baked in at build time     |
 | **slim** | `-slim` e.g. `:1.0.0-slim` | ~400 MB | Must be mounted at runtime |
 
 Both variants are published to GitHub Container Registry:
@@ -91,17 +91,17 @@ http://localhost:3338/
 defaults in `src/Config.js`. Copy `applications/pwa/Config.local.js.example`
 to get started.
 
-| Field | Description |
-|---|---|
-| `address` | Login server IP or hostname |
-| `port` | Login server port (default: `6900`) |
-| `packetver` | Must match rAthena `PACKETVER` (e.g. `20200401`) |
-| `renewal` | `true` for Renewal, `false` for Pre-renewal/Classic |
-| `socketProxy` | WebSocket proxy URL — points at this container (`ws://localhost:3338/ws/`) |
-| `remoteClient` | GRF asset server URL — points at this container (`http://localhost:3338/`) |
-| `forceUseAddress` | **Set `true`** for any containerised or NAT deployment |
-| `skipIntro` | Skip the intro video (`false` by default) |
-| `skipServerList` | Auto-select first server (`false` by default) |
+| Field             | Description                                                                |
+| ----------------- | -------------------------------------------------------------------------- |
+| `address`         | Login server IP or hostname                                                |
+| `port`            | Login server port (default: `6900`)                                        |
+| `packetver`       | Must match rAthena `PACKETVER` (e.g. `20200401`)                           |
+| `renewal`         | `true` for Renewal, `false` for Pre-renewal/Classic                        |
+| `socketProxy`     | WebSocket proxy URL — points at this container (`ws://localhost:3338/ws/`) |
+| `remoteClient`    | GRF asset server URL — points at this container (`http://localhost:3338/`) |
+| `forceUseAddress` | **Set `true`** for any containerised or NAT deployment                     |
+| `skipIntro`       | Skip the intro video (`false` by default)                                  |
+| `skipServerList`  | Auto-select first server (`false` by default)                              |
 
 > **Remote access:** If your browser is on a different machine than the
 > container, replace `localhost` with the container host's IP or hostname in
@@ -174,11 +174,11 @@ docker buildx build \
 
 Required repository secrets:
 
-| Secret | Description |
-|---|---|
-| `GRF_BASE_URL` | Base HTTPS URL of the GRF asset store |
-| `S3_ACCESS_KEY_ID` | S3/MinIO access key ID |
-| `S3_SECRET_ACCESS_KEY` | S3/MinIO secret access key |
+| Secret                 | Description                           |
+| ---------------------- | ------------------------------------- |
+| `GRF_BASE_URL`         | Base HTTPS URL of the GRF asset store |
+| `S3_ACCESS_KEY_ID`     | S3/MinIO access key ID                |
+| `S3_SECRET_ACCESS_KEY` | S3/MinIO secret access key            |
 
 If the GRF secrets are absent, only the slim image is built — the full job
 skips gracefully.
@@ -202,12 +202,12 @@ ghcr.io/<owner>/robrowserlegacy:latest-slim  # slim, latest tag
 
 ## What assets are needed
 
-| File | Required | Notes |
-|---|---|---|
-| `data.grf` | Yes | Main game assets — textures, maps, sprites, DB tables |
-| `rdata.grf` | Yes | kRO-specific patches |
-| `DATA.INI` | Yes | Tells the server which GRF files to load and in what order |
-| `BGM/` | No | Background music MP3s — game is silent without it |
+| File        | Required | Notes                                                      |
+| ----------- | -------- | ---------------------------------------------------------- |
+| `data.grf`  | Yes      | Main game assets — textures, maps, sprites, DB tables      |
+| `rdata.grf` | Yes      | kRO-specific patches                                       |
+| `DATA.INI`  | Yes      | Tells the server which GRF files to load and in what order |
+| `BGM/`      | No       | Background music MP3s — game is silent without it          |
 
 `data/`, `System/`, and `AI/` directories from the kRO client are **not
 needed** — their contents are already inside `data.grf` for a standard
