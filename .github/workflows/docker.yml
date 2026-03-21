@@ -1,7 +1,7 @@
 name: 'Build Docker Image'
 
 # Triggered on tag push (e.g. v1.0.0, v1.2.3)
-# Produces two images per tag:
+# Produces two multi-platform images per tag (linux/amd64 + linux/arm64):
 #
 #   ghcr.io/lenaxia/robrowserlegacy:<version>       — full (~5GB, GRFs baked in)
 #   ghcr.io/lenaxia/robrowserlegacy:<version>-slim  — slim (~400MB, mount GRFs at runtime)
@@ -43,6 +43,11 @@ jobs:
             - name: 'Free up disk space'
               run: sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet || true
 
+            - name: 'Set up QEMU (ARM emulation)'
+              uses: docker/setup-qemu-action@v3
+              with:
+                  platforms: arm64
+
             - name: 'Set up Docker Buildx'
               uses: docker/setup-buildx-action@v3
 
@@ -59,6 +64,7 @@ jobs:
                   context: .
                   file: Dockerfile.remoteclient
                   target: slim
+                  platforms: linux/amd64,linux/arm64
                   push: true
                   build-args: BUILD_VERSION=${{ steps.version.outputs.build_version }}
                   tags: |
@@ -79,6 +85,7 @@ jobs:
                   echo "| | |" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|" >> $GITHUB_STEP_SUMMARY
                   echo "| **tag** | \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.build_version }}-slim\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **platforms** | linux/amd64, linux/arm64 |" >> $GITHUB_STEP_SUMMARY
                   echo "| **GRF assets** | mount at runtime |" >> $GITHUB_STEP_SUMMARY
 
     # ── Full image ─────────────────────────────────────────────────────────────
@@ -112,6 +119,12 @@ jobs:
                   sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet || true
                   df -h
 
+            - name: 'Set up QEMU (ARM emulation)'
+              if: steps.check.outputs.skip == 'false'
+              uses: docker/setup-qemu-action@v3
+              with:
+                  platforms: arm64
+
             - name: 'Set up Docker Buildx'
               if: steps.check.outputs.skip == 'false'
               uses: docker/setup-buildx-action@v3
@@ -131,6 +144,7 @@ jobs:
                   context: .
                   file: Dockerfile.remoteclient
                   target: full
+                  platforms: linux/amd64,linux/arm64
                   push: true
                   build-args: |
                       BUILD_VERSION=${{ steps.version.outputs.build_version }}
@@ -160,4 +174,5 @@ jobs:
                   echo "| | |" >> $GITHUB_STEP_SUMMARY
                   echo "|---|---|" >> $GITHUB_STEP_SUMMARY
                   echo "| **tag** | \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.build_version }}\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **platforms** | linux/amd64, linux/arm64 |" >> $GITHUB_STEP_SUMMARY
                   echo "| **GRF assets** | baked in |" >> $GITHUB_STEP_SUMMARY

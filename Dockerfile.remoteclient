@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# Supports linux/amd64 and linux/arm64 via multi-platform builds.
 #
 # roBrowserLegacy — two image targets:
 #
@@ -38,7 +39,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1: build roBrowserLegacy JS bundles
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20.10.0 AS robrowser-builder
+FROM --platform=$BUILDPLATFORM node:20.10.0 AS robrowser-builder
 
 ARG BUILD_VERSION=dev
 
@@ -55,8 +56,10 @@ RUN npm run build:all
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: download GRF assets (no-op if GRF_BASE_URL not set)
+# Always runs on the build machine platform — this stage just downloads files,
+# it doesn't produce any target-platform binaries.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM alpine AS grf-downloader
+FROM --platform=$BUILDPLATFORM alpine AS grf-downloader
 
 ARG GRF_BASE_URL=""
 
@@ -107,8 +110,9 @@ RUN --mount=type=secret,id=s3_access_key_id \
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: base — remote-client + roBrowserLegacy dist (no GRFs)
 # This is the slim image target and the base for the full image.
+# Built for the target platform (amd64 or arm64).
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS slim
+FROM --platform=$TARGETPLATFORM node:20-slim AS slim
 
 ARG BUILD_VERSION=dev
 
