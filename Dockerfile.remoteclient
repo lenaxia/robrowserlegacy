@@ -145,7 +145,7 @@ RUN git clone https://github.com/FranciscoWallison/roBrowserLegacy-RemoteClient-
     # Remove git history to reduce image size
     rm -rf .git
 
-# Patch: make the WS proxy allowed-target list configurable via WS_ALLOWED_TARGETS.
+# Patch 1: make the WS proxy allowed-target list configurable via WS_ALLOWED_TARGETS.
 # The upstream repo hardcodes 127.0.0.1, which breaks non-host-network deployments
 # (Kubernetes, Docker Desktop on macOS/Windows, remote rAthena hosts).
 # Default behaviour is preserved when WS_ALLOWED_TARGETS is not set.
@@ -157,6 +157,20 @@ RUN node -e " \
     \"const ALLOWED_TARGETS = process.env.WS_ALLOWED_TARGETS\\n\" + \
     \"      ? process.env.WS_ALLOWED_TARGETS.split(',').map(s => s.trim())\\n\" + \
     \"      : [\\n\$1    ];\"\
+  ); \
+  fs.writeFileSync('index.js', src); \
+"
+
+# Patch 2: buffer WS messages until TCP connection is established.
+# net.connect() is async — if the browser sends the login packet before the TCP
+# connect event fires, tcp.writable is false and the bytes are silently dropped,
+# causing intermittent disconnects at server/char select.
+RUN node -e " \
+  const fs = require('fs'); \
+  let src = fs.readFileSync('index.js', 'utf8'); \
+  src = src.replace( \
+    'const tcp = net.connect(parseInt(targetPort), host);\n      tcp.setNoDelay(true);\n\n      tcp.on(\'connect\', () => {\n        logger.debug(\`WS proxy: connected to \${target}\`);\n      });\n\n      ws.on(\'message\', (data) => {\n        if (tcp.writable) tcp.write(data);\n      });', \
+    'const tcp = net.connect(parseInt(targetPort), host);\n      tcp.setNoDelay(true);\n      const pending = [];\n      let connected = false;\n\n      tcp.on(\'connect\', () => {\n        connected = true;\n        logger.debug(\`WS proxy: connected to \${target}\`);\n        pending.splice(0).forEach(d => tcp.write(d));\n      });\n\n      ws.on(\'message\', (data) => {\n        if (connected) { tcp.write(data); } else { pending.push(data); }\n      });' \
   ); \
   fs.writeFileSync('index.js', src); \
 "
