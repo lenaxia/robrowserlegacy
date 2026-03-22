@@ -139,7 +139,7 @@ WORKDIR /app
 # Pin to a specific commit from our fork for reproducible builds.
 # Fork: https://github.com/lenaxia/roBrowserLegacy-RemoteClient-JS
 # To update: change REMOTE_CLIENT_COMMIT to a newer commit SHA from the fork.
-ARG REMOTE_CLIENT_COMMIT=f64835e78aaa6c971b7614bf454ed3f23f7142fc
+ARG REMOTE_CLIENT_COMMIT=9bc3e832b6bc62974f85a939b3f2e2b6cb34a439
 RUN git clone https://github.com/lenaxia/roBrowserLegacy-RemoteClient-JS.git . && \
     git checkout "${REMOTE_CLIENT_COMMIT}" && \
     npm install --ignore-scripts && \
