@@ -116,6 +116,20 @@ to get started.
 | `skipIntro`       | Skip the intro video (`false` by default)                                  |
 | `skipServerList`  | Auto-select first server (`false` by default)                              |
 
+### Container environment variables
+
+| Variable              | Default                                          | Description                                                                                  |
+| --------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `PORT`                | `3338`                                           | Port the server listens on                                                                   |
+| `CLIENT_PUBLIC_URL`   | `http://localhost:3338`                          | Public base URL of this container (used for CORS)                                            |
+| `WS_ALLOWED_TARGETS`  | _(empty → localhost only)_                       | Comma-separated `host:port` list the WS proxy may forward to. See [Networking](#networking). |
+| `ENABLE_WSPROXY`      | `true`                                           | Enable the embedded WebSocket proxy                                                          |
+| `ENABLE_STATIC_SERVE` | `true`                                           | Serve the roBrowserLegacy web client as static files                                         |
+| `CACHE_MAX_FILES`     | `10000`                                          | Max number of GRF files to keep in memory cache                                              |
+| `CACHE_MAX_MEMORY_MB` | `2048`                                           | Memory budget for the GRF file cache                                                         |
+| `CACHE_WARM_UP`       | `true`                                           | Pre-populate cache on startup                                                                |
+| `CACHE_WARM_UP_LIMIT` | `500`                                            | Max files to pre-load during warm-up                                                         |
+
 > **Remote access:** If your browser is on a different machine than the
 > container, replace `localhost` with the container host's IP or hostname in
 > `socketProxy` and `remoteClient`, and set `CLIENT_PUBLIC_URL` to the same
@@ -125,13 +139,39 @@ to get started.
 
 ## Networking
 
-The container uses `network_mode: host` so the embedded WebSocket proxy can
-reach rAthena on `127.0.0.1:6900/6121/5121`.
+By default the embedded WebSocket proxy only forwards to `127.0.0.1:6900`,
+`127.0.0.1:6121`, and `127.0.0.1:5121`. This means the container must be able
+to reach rAthena on localhost.
 
-> **Linux only.** On macOS and Windows Docker Desktop, host networking silently
-> falls back to bridge mode and the WebSocket proxy will fail to connect to
-> rAthena. On non-Linux hosts, use `host.docker.internal` instead of
-> `127.0.0.1` in `Config.local.js`.
+**Host networking (Linux, simplest)**
+
+```bash
+docker run -d --network host ...
+```
+
+rAthena and the container share the host network stack, so `127.0.0.1` works
+as-is. Not available on Docker Desktop for macOS/Windows.
+
+**Bridge networking or remote rAthena (Kubernetes, Docker Compose, macOS/Windows)**
+
+Pass the real IP(s) of your rAthena server via `WS_ALLOWED_TARGETS`:
+
+```bash
+docker run -d \
+  -e WS_ALLOWED_TARGETS="10.0.0.5:6900,10.0.0.5:6121,10.0.0.5:5121" \
+  -e CLIENT_PUBLIC_URL="http://<your-host>:3338" \
+  ...
+```
+
+On Docker Desktop (macOS/Windows) you can use the magic hostname instead:
+
+```bash
+-e WS_ALLOWED_TARGETS="host.docker.internal:6900,host.docker.internal:6121,host.docker.internal:5121"
+```
+
+> **Security note:** `WS_ALLOWED_TARGETS` is an explicit allowlist. Only
+> `host:port` pairs listed here can be reached through the proxy — arbitrary
+> targets are still rejected.
 
 ---
 

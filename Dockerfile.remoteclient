@@ -145,6 +145,22 @@ RUN git clone https://github.com/FranciscoWallison/roBrowserLegacy-RemoteClient-
     # Remove git history to reduce image size
     rm -rf .git
 
+# Patch: make the WS proxy allowed-target list configurable via WS_ALLOWED_TARGETS.
+# The upstream repo hardcodes 127.0.0.1, which breaks non-host-network deployments
+# (Kubernetes, Docker Desktop on macOS/Windows, remote rAthena hosts).
+# Default behaviour is preserved when WS_ALLOWED_TARGETS is not set.
+RUN node -e " \
+  const fs = require('fs'); \
+  let src = fs.readFileSync('index.js', 'utf8'); \
+  src = src.replace( \
+    /const ALLOWED_TARGETS = \[\n([\s\S]*?)\];/, \
+    \"const ALLOWED_TARGETS = process.env.WS_ALLOWED_TARGETS\\n\" + \
+    \"      ? process.env.WS_ALLOWED_TARGETS.split(',').map(s => s.trim())\\n\" + \
+    \"      : [\\n\$1    ];\"\
+  ); \
+  fs.writeFileSync('index.js', src); \
+"
+
 COPY --from=robrowser-builder /app/dist/Web /robrowser
 
 # Transfer ownership to non-root user
@@ -159,6 +175,11 @@ ENV ENABLE_STATIC_SERVE=true
 ENV ROBROWSER_PATH=/robrowser
 # CLIENT_PUBLIC_URL: update to your public URL if not running locally
 ENV CLIENT_PUBLIC_URL=http://localhost:3338
+# WS_ALLOWED_TARGETS: comma-separated host:port list the WS proxy may forward to.
+# Defaults to localhost only (127.0.0.1:6900,127.0.0.1:6121,127.0.0.1:5121).
+# Override for non-host-network deployments, e.g.:
+#   -e WS_ALLOWED_TARGETS="10.0.0.5:6900,10.0.0.5:6121,10.0.0.5:5121"
+ENV WS_ALLOWED_TARGETS=""
 # Cache tuning: adjust based on available memory
 ENV CACHE_MAX_FILES=10000
 ENV CACHE_MAX_MEMORY_MB=2048
