@@ -1,0 +1,69 @@
+name: 'Sync fork with upstream'
+
+# Runs daily at 02:00 UTC and can be triggered manually.
+# Rebases fork master on top of MrAntares/roBrowserLegacy master so the
+# fork stays current with upstream game engine changes.
+#
+# If a rebase conflict occurs the workflow fails and sends a GitHub
+# notification - resolve manually with:
+#   git fetch upstream
+#   git rebase upstream/master
+#   # fix conflicts, then:
+#   git push origin master --force
+
+on:
+    schedule:
+        - cron: '0 2 * * *'
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.repository }}-sync-upstream
+    cancel-in-progress: true
+
+permissions:
+    contents: write
+
+jobs:
+    sync:
+        name: 'Rebase onto upstream master'
+        runs-on: ubuntu-latest
+        steps:
+            - name: 'Checkout fork master'
+              uses: actions/checkout@v4
+              with:
+                  ref: master
+                  fetch-depth: 0
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: 'Add upstream remote'
+              run: git remote add upstream https://github.com/MrAntares/roBrowserLegacy.git
+
+            - name: 'Fetch upstream'
+              run: git fetch upstream master --quiet
+
+            - name: 'Check if rebase is needed'
+              id: check
+              run: |
+                  BEHIND=$(git rev-list --count master..upstream/master)
+                  echo "behind=${BEHIND}" >> "$GITHUB_OUTPUT"
+                  echo "Fork is ${BEHIND} commit(s) behind upstream"
+
+            - name: 'Rebase onto upstream master'
+              if: steps.check.outputs.behind != '0'
+              run: |
+                  git config user.name  "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git rebase upstream/master
+
+            - name: 'Push rebased master'
+              if: steps.check.outputs.behind != '0'
+              run: git push origin master --force
+
+            - name: 'Summary'
+              run: |
+                  BEHIND=${{ steps.check.outputs.behind }}
+                  if [ "$BEHIND" = "0" ]; then
+                    echo "Already up to date with upstream - nothing to do." >> $GITHUB_STEP_SUMMARY
+                  else
+                    echo "Rebased ${BEHIND} upstream commit(s) onto fork master." >> $GITHUB_STEP_SUMMARY
+                  fi
