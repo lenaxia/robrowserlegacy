@@ -136,81 +136,15 @@ RUN groupadd -r robrowser && useradd -r -g robrowser -d /app robrowser
 
 WORKDIR /app
 
-# Pin to a specific commit for reproducible builds.
-# To update: change REMOTE_CLIENT_COMMIT to a newer commit SHA.
-ARG REMOTE_CLIENT_COMMIT=11a13c2cc75e7cb0985dd2073f9b8cb7af647a39
-RUN git clone https://github.com/FranciscoWallison/roBrowserLegacy-RemoteClient-JS.git . && \
+# Pin to a specific commit from our fork for reproducible builds.
+# Fork: https://github.com/lenaxia/roBrowserLegacy-RemoteClient-JS
+# To update: change REMOTE_CLIENT_COMMIT to a newer commit SHA from the fork.
+ARG REMOTE_CLIENT_COMMIT=f64835e78aaa6c971b7614bf454ed3f23f7142fc
+RUN git clone https://github.com/lenaxia/roBrowserLegacy-RemoteClient-JS.git . && \
     git checkout "${REMOTE_CLIENT_COMMIT}" && \
     npm install --ignore-scripts && \
     # Remove git history to reduce image size
     rm -rf .git
-
-# Patch 1: make the WS proxy allowed-target list configurable via WS_ALLOWED_TARGETS.
-# The upstream repo hardcodes 127.0.0.1, which breaks non-host-network deployments
-# (Kubernetes, Docker Desktop on macOS/Windows, remote rAthena hosts).
-# Default behaviour is preserved when WS_ALLOWED_TARGETS is not set.
-RUN node -e " \
-  const fs = require('fs'); \
-  let src = fs.readFileSync('index.js', 'utf8'); \
-  src = src.replace( \
-    /const ALLOWED_TARGETS = \[\n([\s\S]*?)\];/, \
-    \"const ALLOWED_TARGETS = process.env.WS_ALLOWED_TARGETS\\n\" + \
-    \"      ? process.env.WS_ALLOWED_TARGETS.split(',').map(s => s.trim())\\n\" + \
-    \"      : [\\n\$1    ];\"\
-  ); \
-  fs.writeFileSync('index.js', src); \
-"
-
-# Patch 2: buffer WS messages until TCP connection is established, and improve
-# proxy logging so connection lifecycle is visible in pod logs.
-# - net.connect() is async: bytes sent before 'connect' fires were silently
-#   dropped (tcp.writable===false), causing intermittent disconnects.
-# - Promote proxy events from debug to info so they appear without debug mode.
-RUN node -e " \
-  const fs = require('fs'); \
-  let src = fs.readFileSync('index.js', 'utf8'); \
-  \
-  /* log every inbound WS upgrade attempt */ \
-  src = src.replace( \
-    'wss.on(\'connection\', (ws, req) => {\n      const target = req.url.replace(\'/ws/\', \'\');', \
-    'wss.on(\'connection\', (ws, req) => {\n      const target = req.url.replace(\'/ws/\', \'\');\n      logger.info(\`WS attempt: \${target}\`);' \
-  ); \
-  \
-  /* include allowlist in blocked message */ \
-  src = src.replace( \
-    'logger.warn(\`WS proxy blocked connection to: \${target}\`);', \
-    'logger.warn(\`WS proxy blocked: \${target} (allowed: \${ALLOWED_TARGETS.join(\", \")})\`);' \
-  ); \
-  \
-  /* promote connect/connected/close events from debug to info */ \
-  src = src.replace('logger.debug(\`WS proxy: connecting to \${target}\`)', 'logger.info(\`WS proxy: connecting to \${target}\`)'); \
-  src = src.replace('logger.debug(\`WS proxy: connected to \${target}\`)',  'logger.info(\`WS proxy: connected  to \${target}\`)'); \
-  \
-  /* log client and server close */ \
-  src = src.replace( \
-    'ws.on(\'close\', () => tcp.end());', \
-    'ws.on(\'close\', () => { logger.info(\`WS proxy: client closed \${target}\`); tcp.end(); });' \
-  ); \
-  src = src.replace( \
-    'tcp.on(\'close\', () => { if (ws.readyState === WebSocket.OPEN) ws.close(); });', \
-    'tcp.on(\'close\', () => { logger.info(\`WS proxy: server closed \${target}\`); if (ws.readyState === WebSocket.OPEN) ws.close(); });' \
-  ); \
-  \
-  /* buffer fix: replace writable-guard with pending queue */ \
-  src = src.replace( \
-    'const tcp = net.connect(parseInt(targetPort), host);\n      tcp.setNoDelay(true);\n\n      tcp.on(\'connect\', () => {\n        logger.info(\`WS proxy: connected  to \${target}\`);\n      });\n\n      ws.on(\'message\', (data) => {\n        if (tcp.writable) tcp.write(data);\n      });', \
-    'const tcp = net.connect(parseInt(targetPort), host);\n      tcp.setNoDelay(true);\n      const pending = [];\n      let connected = false;\n\n      tcp.on(\'connect\', () => {\n        connected = true;\n        pending.splice(0).forEach(d => tcp.write(d));\n        logger.info(\`WS proxy: connected  to \${target}\`);\n      });\n\n      ws.on(\'message\', (data) => {\n        if (connected) { tcp.write(data); } else { pending.push(data); }\n      });' \
-  ); \
-  \
-  fs.writeFileSync('index.js', src); \
-  \
-  /* verify */ \
-  const out = fs.readFileSync('index.js', 'utf8'); \
-  if (!out.includes('pending.push(data)'))   process.exit(1); \
-  if (!out.includes('WS attempt:'))          process.exit(2); \
-  if (!out.includes('client closed'))        process.exit(3); \
-  console.log('All patches applied successfully'); \
-"
 
 COPY --from=robrowser-builder /app/dist/Web /robrowser
 
