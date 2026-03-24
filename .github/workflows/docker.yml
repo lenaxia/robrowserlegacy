@@ -5,12 +5,12 @@ name: 'Build Docker Image'
 # by build date so users can pin to a specific build or track latest.
 #
 # Tags produced per build:
-#   ghcr.io/<owner>/roBrowserLegacy:YYYY-MM-DD-slim   - slim (~400MB, mount GRFs at runtime)
-#   ghcr.io/<owner>/roBrowserLegacy:latest-slim        - slim, always points to most recent build
+#   ghcr.io/<owner>/robrowserlegacy:YYYY-MM-DD-<sha>-slim   - slim (~400MB, mount GRFs at runtime)
+#   ghcr.io/<owner>/robrowserlegacy:latest-slim              - slim, rolling latest
 #
 # Full image (GRFs baked in, ~5GB) is also built if S3 secrets are configured:
-#   ghcr.io/<owner>/roBrowserLegacy:YYYY-MM-DD         - full
-#   ghcr.io/<owner>/roBrowserLegacy:latest             - full, always points to most recent build
+#   ghcr.io/<owner>/robrowserlegacy:YYYY-MM-DD-<sha>         - full
+#   ghcr.io/<owner>/robrowserlegacy:latest                   - full, rolling latest
 #
 # Required secrets for full image (optional - slim is always built):
 #   GRF_BASE_URL         - base HTTPS URL for GRF asset tarballs
@@ -41,6 +41,7 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             build_date: ${{ steps.date.outputs.build_date }}
+            short_sha: ${{ steps.date.outputs.short_sha }}
             created: ${{ steps.date.outputs.created }}
         steps:
             - name: 'Checkout repository'
@@ -50,6 +51,7 @@ jobs:
               id: date
               run: |
                   echo "build_date=$(date -u +"%Y-%m-%d")" >> "$GITHUB_OUTPUT"
+                  echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
                   echo "created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$GITHUB_OUTPUT"
 
             - name: 'Free up disk space'
@@ -81,7 +83,7 @@ jobs:
                   provenance: false
                   build-args: BUILD_VERSION=${{ steps.date.outputs.build_date }}
                   tags: |
-                      ghcr.io/${{ github.repository }}:${{ steps.date.outputs.build_date }}-slim
+                      ghcr.io/${{ github.repository }}:${{ steps.date.outputs.build_date }}-${{ steps.date.outputs.short_sha }}-slim
                       ghcr.io/${{ github.repository }}:latest-slim
                   cache-from: type=gha,scope=docker-slim
                   cache-to: type=gha,mode=max,scope=docker-slim,ignore-error=true
@@ -167,7 +169,7 @@ jobs:
                       s3_secret_access_key=${{ secrets.S3_SECRET_ACCESS_KEY }}
                       grf_base_url=${{ secrets.GRF_BASE_URL }}
                   tags: |
-                      ghcr.io/${{ github.repository }}:${{ needs.slim.outputs.build_date }}
+                      ghcr.io/${{ github.repository }}:${{ needs.slim.outputs.build_date }}-${{ needs.slim.outputs.short_sha }}
                       ghcr.io/${{ github.repository }}:latest
                   cache-from: |
                       type=gha,scope=docker-slim
