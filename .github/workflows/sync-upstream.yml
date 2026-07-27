@@ -1,19 +1,48 @@
 name: 'Sync fork with upstream'
 
-# Runs daily at 02:00 UTC and can be triggered manually.
-# Rebases fork master on top of MrAntares/roBrowserLegacy master so the
-# fork stays current with upstream game engine changes.
+# Keeps this fork current with MrAntares/roBrowserLegacy by rebasing our
+# custom commits (docker + sync workflows) on top of upstream master.
+# Our custom files (.github/workflows/docker.yml, sync-upstream.yml) do not
+# exist upstream, so the rebase is always conflict-free.
 #
-# If a rebase conflict occurs the workflow fails and sends a GitHub
-# notification - resolve manually with:
-#   git fetch upstream
-#   git rebase upstream/master
-#   # fix conflicts, then:
-#   git push origin master --force
+# ── AUTHENTICATION (required) ──────────────────────────────────────────────
+# The default GITHUB_TOKEN CANNOT push workflow-file changes — GitHub blocks
+# any App token from writing under .github/workflows/ without explicit
+# `workflows` permission.  Upstream constantly touches workflow files, so the
+# rebase produces commits that modify them, and the push is rejected every
+# time.  You MUST supply one of:
+#
+#   Option A — GitHub App (recommended: non-expiring, org-owned, least-priv):
+#     1. Settings → Developer settings → GitHub Apps → New GitHub App
+#     2. Repository permissions: Contents = Read and write, Workflows = Read and write
+#     3. Install the App on this repository
+#     4. Add repository secrets:
+#          APP_ID          — the numeric App ID
+#          APP_PRIVATE_KEY — the full .pem private-key contents
+#
+#   Option B — PAT (simpler but expires, tied to one user):
+#     1. Create a classic PAT with `repo` + `workflow` scopes
+#        (or fine-grained PAT with Contents R/W + Workflows R/W)
+#     2. Add a repository secret named SYNC_TOKEN
+#
+#   If neither is configured the workflow fails immediately with a clear
+#   error instead of failing silently for months.
+#
+# ── BRANCH PROTECTION ──────────────────────────────────────────────────────
+# If master has branch protection that blocks force-push, add the App/PAT
+# identity to the "Allow specified actors to bypass required pull request
+# requests" list, or enable "Allow force pushes".
+#
+# ── DOWNSTREAM CASCADE ─────────────────────────────────────────────────────
+# Schedule cascade (all UTC):
+#   01:00  this workflow runs  → rebases + force-pushes
+#   ~01:05 push triggers release.yml (upstream nightly release)
+#   ~01:10 workflow_run triggers docker.yml (image rebuild)
+#   04:00  docker.yml backup cron (safety net)
 
 on:
     schedule:
-        - cron: '0 2 * * *'
+        - cron: '0 1 * * *' # 01:00 UTC daily
     workflow_dispatch:
 
 concurrency:
@@ -28,12 +57,38 @@ jobs:
         name: 'Rebase onto upstream master'
         runs-on: ubuntu-latest
         steps:
+            - name: 'Detect auth method'
+              id: auth
+              env:
+                  APP_ID: ${{ secrets.APP_ID }}
+                  SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+              run: |
+                  if [ -n "$APP_ID" ] && [ -n "$SYNC_TOKEN" ]; then
+                    echo "::warning::Both APP_ID and SYNC_TOKEN are set; using GitHub App (APP_ID)."
+                    echo "method=app" >> "$GITHUB_OUTPUT"
+                  elif [ -n "$APP_ID" ]; then
+                    echo "method=app" >> "$GITHUB_OUTPUT"
+                  elif [ -n "$SYNC_TOKEN" ]; then
+                    echo "method=pat" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "::error::No token configured. Create a GitHub App (add APP_ID + APP_PRIVATE_KEY secrets) or a PAT (add SYNC_TOKEN secret) with Contents+Workflows write scope. See workflow header comments for full instructions."
+                    exit 1
+                  fi
+
+            - name: 'Get App installation token'
+              id: app-token
+              if: steps.auth.outputs.method == 'app'
+              uses: actions/create-github-app-token@v1
+              with:
+                  app-id: ${{ secrets.APP_ID }}
+                  private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
             - name: 'Checkout fork master'
               uses: actions/checkout@v4
               with:
                   ref: master
                   fetch-depth: 0
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  token: ${{ steps.auth.outputs.method == 'app' && steps.app-token.outputs.token || secrets.SYNC_TOKEN }}
 
             - name: 'Add upstream remote'
               run: git remote add upstream https://github.com/MrAntares/roBrowserLegacy.git
@@ -62,8 +117,11 @@ jobs:
             - name: 'Summary'
               run: |
                   BEHIND=${{ steps.check.outputs.behind }}
+                  echo "### Upstream Sync" >> $GITHUB_STEP_SUMMARY
                   if [ "$BEHIND" = "0" ]; then
-                    echo "Already up to date with upstream - nothing to do." >> $GITHUB_STEP_SUMMARY
+                    echo "Already up to date with upstream — nothing to do." >> $GITHUB_STEP_SUMMARY
                   else
-                    echo "Rebased ${BEHIND} upstream commit(s) onto fork master." >> $GITHUB_STEP_SUMMARY
+                    echo "Rebased **${BEHIND}** upstream commit(s) onto fork master." >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "Docker image build will trigger automatically via \`workflow_run\`." >> $GITHUB_STEP_SUMMARY
                   fi

@@ -226,9 +226,31 @@ docker buildx build \
 
 ## CI/CD (GitHub Actions)
 
-`docker.yml` builds and publishes both variants to GHCR on every tag push.
+Two workflows keep images built and current with upstream automatically.
 
-Required repository secrets:
+### 1. Sync fork with upstream (`sync-upstream.yml`)
+
+Runs daily at 01:00 UTC. Rebases this fork's custom commits onto
+`MrAntares/roBrowserLegacy` master and force-pushes.
+
+**Required** — choose one authentication method (the default `GITHUB_TOKEN`
+cannot push workflow-file changes):
+
+| Secret(s)                    | Method                                                              |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `APP_ID` + `APP_PRIVATE_KEY` | GitHub App with Contents + Workflows write permission (recommended) |
+| `SYNC_TOKEN`                 | Classic PAT with `repo` + `workflow` scopes                         |
+
+See the workflow header comments in `sync-upstream.yml` for full setup
+instructions. If branch protection blocks force-push to master, allow the
+App/PAT identity to bypass it.
+
+### 2. Build Docker image (`docker.yml`)
+
+Triggers automatically when the sync workflow succeeds (`workflow_run`), with a
+04:00 UTC cron backup and manual `workflow_dispatch`.
+
+Optional repository secrets for the full image (slim is always built):
 
 | Secret                 | Description                           |
 | ---------------------- | ------------------------------------- |
@@ -236,22 +258,13 @@ Required repository secrets:
 | `S3_ACCESS_KEY_ID`     | S3/MinIO access key ID                |
 | `S3_SECRET_ACCESS_KEY` | S3/MinIO secret access key            |
 
-If the GRF secrets are absent, only the slim image is built - the full job
-skips gracefully.
-
-Trigger a build by pushing a semver tag:
-
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-
 Images published:
 
 ```
-ghcr.io/<owner>/robrowserlegacy:1.0.0        # full, linux/amd64 + linux/arm64
-ghcr.io/<owner>/robrowserlegacy:1.0.0-slim   # slim, linux/amd64 + linux/arm64
-ghcr.io/<owner>/robrowserlegacy:latest       # full, latest tag
-ghcr.io/<owner>/robrowserlegacy:latest-slim  # slim, latest tag
+ghcr.io/<owner>/robrowserlegacy:YYYY-MM-DD-<sha>-slim   # slim
+ghcr.io/<owner>/robrowserlegacy:latest-slim              # slim, rolling
+ghcr.io/<owner>/robrowserlegacy:YYYY-MM-DD-<sha>         # full (if GRF secrets set)
+ghcr.io/<owner>/robrowserlegacy:latest                   # full, rolling
 ```
 
 ---
