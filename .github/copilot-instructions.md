@@ -13,9 +13,7 @@ All source files use AMD with `define()` function. Each module explicitly lists 
 ```javascript
 define(['Utils/BinaryReader', 'Core/Configs'], function (BinaryReader, Configs) {
 	// module code
-	return {
-		/* exports */
-	};
+	return {/* exports */};
 });
 ```
 
